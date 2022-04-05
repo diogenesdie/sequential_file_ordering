@@ -37,53 +37,138 @@ const getFromBuffer = async (buffer) => {
     });
 }
 
+const hashSearch = async (haystack) => {
+    const needle = await getFromBuffer();
+    console.time('hashSearch');
+    const index = haystack.findIndex(item => item.key == needle);
+
+    console.log( index == -1 ? 'Not found' : `Found at index ${index}`);
+    console.timeEnd('hashSearch');
+}
+
+const sequencialSearch = async (haystack) => {
+    const needle = await getFromBuffer();
+    console.time('sequencialSearch');
+    let index = 0;
+    while (index < haystack.length) {
+        if (haystack[index].key == needle) {
+            console.log(`Found at index ${index}`);
+            console.timeEnd('sequencialSearch');
+            return;
+        }
+        ++index;
+    }
+    console.timeEnd('sequencialSearch');
+    console.log('Not found');
+}
+
+const binarySearch = async (haystack) => {
+    const needle = await getFromBuffer();
+    console.time('binarySearch');
+    let low = 0;
+    let high = haystack.length - 1;
+    while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        if (haystack[mid].key == needle) {
+            console.log(`Found at index ${mid}`);
+            console.timeEnd('binarySearch');
+            return;
+        } else if (haystack[mid].key < needle) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    console.log('Not found');
+    console.timeEnd('binarySearch');
+}
+
 const logger = (item) => {
     console.log('Chave: ', item.key, 'Nome: ', item.name);
     console.log('----------------------------------------');
 }
 
-(async () => {
-    let addNew = 'y';
-    let data   = [];
+const pause = async () => {
+    console.log('Press any key to continue...');
+    return new Promise((resolve, reject) => {
+        process.stdin.on('data', (data) => {
+            resolve();
+        });
+    });
+}
 
-    while( addNew === 'y' ){
-        console.clear();
+const mainMenu = async () => {
+    const data = await readFile();
+    console.clear();
 
-        data = await readFile();
-        
-        if( !data.length ){
-            console.log('Ainda não existem registros');
-        } else {
-            console.log('Registros existentes:');
-            data.forEach(logger);
-        }
+    if( !data.length ){
+        console.log('Ainda não existem registros');
+    } else {
+        console.log('Registros existentes:');
+        data.forEach(logger);
+    }
 
-        console.log('Digite o nome do novo registro:');
-        const name = await getFromBuffer();
+    console.log('1 - Inserir novo registro');
+    console.log('2 - Buscar registro por chave (hash)');
+    console.log('3 - Buscar registro por chave (sequencial)');
+    console.log('4 - Buscar registro por chave (binário)');
+    console.log('5 - Popular arquivo');
+    console.log('6 - Sair');
 
-        console.log('Digite a chave do novo registro:');
-        const key = await getFromBuffer();
+    const option = await getFromBuffer();
+    switch (option) {
+        case '1':
+            console.log('Digite o nome do novo registro:');
+            const name = await getFromBuffer();
 
-        if( data.find(item => item.key === key) ){
-            console.log('Chave já existente');
-        } else {
+            console.log('Digite a chave do novo registro:');
+            const key = await getFromBuffer();
+            
             data.push({
-                key,
-                name
+                key: key,
+                name: name
             });
-    
+
             data.sort((a, b) => {
                 return a.key - b.key;
             });
 
             await writeFile(data);
-        }
-
-        console.log('Deseja adicionar outro registro? (y/n)');
-        addNew = await getFromBuffer();
+            break;
+        case '2':
+            console.log('Digite a chave do registro que deseja buscar:');
+            await hashSearch(data);
+            await pause();
+            break;
+        case '3':
+            console.log('Digite a chave do registro que deseja buscar:');
+            await sequencialSearch(data);
+            await pause();
+            break;
+        case '4':
+            console.log('Digite a chave do registro que deseja buscar:');
+            await binarySearch(data);
+            await pause();
+            break;
+        case '5':
+            for( let i = 0; i < 1000000; i++ ){
+                data.push({
+                    key: i,
+                    name: `Nome ${i}`
+                });
+            }
+            
+            await writeFile(data);
+            break;
+        case '6':
+            process.exit();
+        default:
+            console.log('Opção inválida');
+            break;
     }
+    await mainMenu();
+}
 
-    console.log('Registros existentes:');
-    data.forEach(logger);
-    process.exit();
+(async () => {
+    await mainMenu();
 })();
